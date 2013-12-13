@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+    <plugin xmlns="http://apache.org/cordova/ns/plugins/1.0"
+            id="org.apache.cordova.speech" version="0.2.0">
+        <name>Device</name>
+        <description>Cordova Text To Speech Plugin</description>
+        <license>Apache 2.0</license>
+        <keywords>cordova,speech,speak</keywords>
+        <js-module src="www/speech.js" name="speech">
+            <clobbers target="speech" />
+        </js-module>
+        <platform name="ios">
+            <config-file target="config.xml" parent="/*">
+                <feature name="Speak">
+                    <param name="ios-package" value="CDVSpeak"/>
+                </feature>
+            </config-file>
+            <header-file src="src/ios/CDVSpeak.h" />
+            <source-file src="src/ios/CDVSpeak.m" />
+        </platform>
+    </plugin>
