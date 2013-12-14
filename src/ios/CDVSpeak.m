@@ -9,53 +9,52 @@ cst_voice *register_cmu_us_slt();
 cst_wave *sound;
 cst_voice *voice;
 
-@interface CDVSpeak (Private)
-
-@property(nonatomic, strong) AVAudioPlayer* audioPlayer;
-@property(nonatomic, strong) NSMutableArray* queue;
-
-@end
-
 @implementation CDVSpeak
 
--(id)init
+@synthesize queue;
+@synthesize audioPlayer;
+
+- (id)initWithWebView:(UIWebView*)theWebView
 {
-    self = [super init];
-	flite_init();
-	// Set a default voice
-	//voice = register_cmu_us_kal();
-	//voice = register_cmu_us_kal16();
-	//voice = register_cmu_us_rms();
-	//voice = register_cmu_us_awb();
-	//voice = register_cmu_us_slt();
-	[self setVoice:@"cmu_us_kal"];
-	self.queue = [NSMutableArray arrayWithCapacity: 10];
+    if((self = [super initWithWebView:theWebView]))
+    {
+        flite_init();
+        // Set a default voice
+        //voice = register_cmu_us_kal();
+        //voice = register_cmu_us_kal16();
+        //voice = register_cmu_us_rms();
+        //voice = register_cmu_us_awb();
+        //voice = register_cmu_us_slt();
+        [self setVoice:@"cmu_us_kal"];
+        self.queue = [NSMutableArray arrayWithCapacity: 10];
+    }
     return self;
 }
 
 - (void)say:(CDVInvokedUrlCommand*)command
 {
-    NSString* text = [command.arguments objectAtIndex:0];
-    NSString* voice = [command.arguments objectAtIndex:1 withDefault: @"cmu_us_kal"];
-    float pitch = [[command.arguments objectAtIndex:2 withDefault:[NSNumber numberWithFloat: 1.0]] floatValue];
-    float speed = [[command.arguments objectAtIndex:3 withDefault:[NSNumber numberWithFloat: 1.0]] floatValue];
+    NSString* text = [command argumentAtIndex:0];
+    NSString* vox = [command argumentAtIndex:1 withDefault: @"cmu_us_kal"];
+    float pitch = [[command argumentAtIndex:2 withDefault:[NSNumber numberWithFloat: 1.0]] floatValue];
+    float speed = [[command argumentAtIndex:3 withDefault:[NSNumber numberWithFloat: 1.0]] floatValue];
 
-    [self speakText: text withVoice: voice pitch: pitch speed: speed];
+    [self speakText: text withVoice: vox pitch: pitch speed: speed];
     CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
-    [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
+    [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
 }
 
 - (void)stopSpeaking:(CDVInvokedUrlCommand*)command
 {
 	self.queue = [NSMutableArray new];
 	[self stopSpeakingAtBoundary:0];
-	CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
+	CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
     [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
 }
 
 - (void)isSpeaking:(CDVInvokedUrlCommand*)command
 {
-	CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsBoolean:([self.queue count] || self.player != nil)];
+    BOOL speaking = ([self.queue count] > 0 || self.audioPlayer != nil);
+	CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsBool: speaking];
     [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];	
 }
 
@@ -67,21 +66,22 @@ cst_voice *voice;
 
 - (void)voices:(CDVInvokedUrlCommand*)command
 {
-	NSArray* voices = @[ @"cmu_us_kal", @"cmu_us_kal16", @"cmu_us_rms", @"cmu_us_awb", @"cmu_us_slt" ];
+	NSArray* voices = @[ @"cmu_us_kal", @"cmu_us_rms", @"cmu_us_awb", @"cmu_us_slt" ];
 
-    CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsArray:voices];
+    CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsArray:voices];
     [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
 }
 
 - (void)speakText:(NSString*)text withVoice:(NSString*)voice pitch:(float)pitch speed:(float)speed
 {
+    BOOL wasSpeaking = self.isSpeaking;
 	[self.queue addObject: @{
 		@"text": text, 
 		@"voice": voice ? voice : @"cmu_us_kal", 
 		@"pitch": [NSNumber numberWithFloat:pitch], 
 		@"speed": [NSNumber numberWithFloat: speed]}];
 
-	if(![self isPlaying])
+	if(!wasSpeaking)
 	{
 		[self audioPlayerDidFinishPlaying:nil successfully:YES];
 	}
@@ -187,16 +187,18 @@ cst_voice *voice;
 	else if([voicename isEqualToString:@"cmu_us_slt"]) {
 		voice = register_cmu_us_slt();
 	}
+    [self setPitch:1.0 variance:1.0 speed:1.0];
 }
 
 -(void)stopSpeakingAtBoundary:(NSInteger)boundary
 {
-	[audioPlayer stop];
+	[self.audioPlayer stop];
+    self.queue = [NSMutableArray new];
 }
 
 -(BOOL)isSpeaking
 {
-	return [audioPlayer isPlaying];
+	return [self.audioPlayer isPlaying] || [self.queue count] > 0;
 }
 
 -(BOOL)isPaused
@@ -208,7 +210,7 @@ cst_voice *voice;
 - (void)audioPlayerDidFinishPlaying:(AVAudioPlayer *)player successfully:(BOOL)flag
 {
 	self.audioPlayer = nil;
-	if(self.queue.count < 0)
+	if([self.queue count] > 0)
 	{
 		NSDictionary* dict = [self.queue objectAtIndex: 0];
 		[self.queue removeObjectAtIndex: 0];

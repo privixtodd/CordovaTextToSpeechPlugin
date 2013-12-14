@@ -3,12 +3,16 @@
 #import <AVFoundation/AVFoundation.h>
 #import <Cordova/CDVPlugin.h>
 
-@interface CDVSpeak : CDVPlugin <CDVSpeak, AVAudioPlayerDelegate>
+@interface CDVSpeak : CDVPlugin <AVAudioPlayerDelegate>
 {
+    
 }
 
 @property(nonatomic, readonly, getter=isSpeaking) BOOL speaking;
 @property(nonatomic, readonly, getter=isPaused) BOOL paused;
+
+@property(nonatomic, strong) AVAudioPlayer* audioPlayer;
+@property(nonatomic, strong) NSMutableArray* queue;
 
 /* AVSpeechUtterances are queued by default. If an AVSpeechUtterance is already enqueued or is speaking, this method will raise an exception. */
 
@@ -32,7 +36,6 @@
 -(void)stopSpeakingAtBoundary:(NSInteger)b;
 -(void)setPitch:(float)pitch variance:(float)variance speed:(float)speed;
 -(void)setVoice:(NSString *)voicename;
-@end
-
 
 @end
+
